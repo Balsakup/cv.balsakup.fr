@@ -1,0 +1,101 @@
+stages:
+  - install
+  - build
+  - deploy
+
+yarn:install:
+  stage: install
+  image: node:lts
+  script:
+    - yarn install --cache-folder .yarn-cache
+  cache:
+    file: yarn.lock
+    paths:
+      - .yarn-cache/
+      - node_modules/
+    policy: push
+
+yarn:build:
+  stage: build
+  needs:
+    - yarn:install
+  image: node:lts
+  script:
+    - yarn build
+  cache:
+    - file: yarn.lock
+      paths:
+        - .yarn-cache/
+        - node_modules/
+      policy: pull
+    - file: dist/.vite/manifest.json
+      paths:
+        - dist/
+      policy: push
+
+docker:build:
+  stage: build
+  needs:
+    - yarn:build
+  image: docker:24
+  services:
+    - docker:24-dind
+  variables:
+    IMAGE_NAME: balsakup-cv
+    IMAGE_VERSION: ${CI_COMMIT_TAG}
+  before_script:
+    - apk add gettext git
+    - docker login -u ${CI_REGISTRY_USER} -p ${CI_REGISTRY_PASSWORD} ${CI_REGISTRY}
+  script:
+    - docker pull ${CI_REGISTRY_IMAGE}/${IMAGE_NAME}:latest || true
+    - docker build
+      --cache-from ${CI_REGISTRY_IMAGE}/${IMAGE_NAME}:latest
+      --tag ${CI_REGISTRY_IMAGE}/${IMAGE_NAME}:${IMAGE_VERSION}
+      --tag ${CI_REGISTRY_IMAGE}/${IMAGE_NAME}:latest
+      --file ./deployment/Dockerfile
+      .
+    - docker push ${CI_REGISTRY_IMAGE}/${IMAGE_NAME}:${IMAGE_VERSION}
+    - docker push ${CI_REGISTRY_IMAGE}/${IMAGE_NAME}:latest
+  cache:
+    file: dist/.vite/manifest.json
+    paths:
+      - dist/
+    policy: pull
+  only:
+    refs:
+      - tags
+
+docker:deploy:
+  stage: deploy
+  needs:
+    - docker:build
+  image: alpine:3.19
+  variables:
+    IMAGE_NAME: balsakup-cv
+    IMAGE_VERSION: ${CI_COMMIT_TAG}
+    FORWARD_APP_PORT: 8001
+  before_script:
+    - apk add gettext openssh-client git
+    - mkdir -p ~/.ssh
+    - chmod 700 ~/.ssh
+    - echo -e "Host *\n\tStrictHostKeyChecking no\n\n" > ~/.ssh/config
+    - eval `ssh-agent`
+    - echo "${SSH_PRIVATE_KEY}" | base64 -d > ~/.ssh/id_ed25519
+    - chmod 600 ~/.ssh/id_ed25519
+    - ssh-add ~/.ssh/id_ed25519
+    - |
+      function ssh_exec() {
+        ssh $(echo "${SSH_USERNAME}" | base64 -d)@$(echo "${SSH_HOSTNAME}" | base64 -d) -p $(echo "${SSH_PORT}" | base64 -d) "cd ${IMAGE_NAME} && $@"
+      }
+  script:
+    - envsubst < deployment/docker-compose.yml > docker-compose.yml
+    - scp -P $(echo "${SSH_PORT}" | base64 -d) docker-compose.yml $(echo "${SSH_USERNAME}" | base64 -d)@$(echo "${SSH_HOSTNAME}" | base64 -d):~/${IMAGE_NAME}/
+    - ssh_exec docker login -u ${CI_REGISTRY_USER} -p ${CI_REGISTRY_PASSWORD} ${CI_REGISTRY}
+    - ssh_exec docker compose up -d
+  environment:
+    name: prod
+    url: ${APP_URL}
+  only:
+    refs:
+      - tags
+

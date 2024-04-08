@@ -1,0 +1,6 @@
+services:
+  app:
+    image: ${CI_REGISTRY_IMAGE}/${IMAGE_NAME}:${IMAGE_VERSION}
+    restart: unless-stopped
+    ports:
+      - '${FORWARD_APP_PORT}:80'
