@@ -16,10 +16,14 @@ yarn:install:
       - .yarn-cache/
       - node_modules/
     policy: push
+  artifacts:
+    expire_in: 1 day
+    paths:
+      - node_modules/
 
 yarn:build:
   stage: build
-  needs:
+  dependencies:
     - yarn:install
   image: node:lts
   script:
@@ -38,10 +42,14 @@ yarn:build:
       paths:
         - dist/
       policy: push
+  artifacts:
+    expire_in: 1 day
+    paths:
+      - dist/
 
 docker:build:
   stage: build
-  needs:
+  dependencies:
     - yarn:build
   image: docker:24
   services:
