@@ -9,7 +9,9 @@ yarn:install:
   script:
     - yarn install --cache-folder .yarn-cache
   cache:
-    file: yarn.lock
+    key:
+      files:
+        - yarn.lock
     paths:
       - .yarn-cache/
       - node_modules/
@@ -23,12 +25,16 @@ yarn:build:
   script:
     - yarn build
   cache:
-    - file: yarn.lock
+    - key:
+      files:
+        - yarn.lock
       paths:
         - .yarn-cache/
         - node_modules/
       policy: pull
-    - file: dist/.vite/manifest.json
+    - key:
+        files:
+          - dist/.vite/manifest.json
       paths:
         - dist/
       policy: push
@@ -57,7 +63,9 @@ docker:build:
     - docker push ${CI_REGISTRY_IMAGE}/${IMAGE_NAME}:${IMAGE_VERSION}
     - docker push ${CI_REGISTRY_IMAGE}/${IMAGE_NAME}:latest
   cache:
-    file: dist/.vite/manifest.json
+    key:
+      files:
+        - dist/.vite/manifest.json
     paths:
       - dist/
     policy: pull
