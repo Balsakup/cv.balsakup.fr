@@ -49,6 +49,8 @@ yarn:build:
 
 docker:build:
   stage: build
+  needs:
+    - yarn:build
   dependencies:
     - yarn:build
   image: docker:24
