@@ -20,7 +20,7 @@ export default [
         `
     },
     {
-        name: 'Lead Développeur Full-Stack',
+        name: 'Développeur Full-Stack',
         company: {
             name: 'Acid-Solutions',
             logo: 'logo-acid-solutions.jpg'
