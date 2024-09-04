@@ -6,6 +6,7 @@ export default [
     'Laravel',
     'TailwindCSS',
     'Boostrap',
+    'React',
     'Wordpress',
     'Docker',
     'Gitlab',
